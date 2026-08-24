@@ -160,17 +160,13 @@ void* amalloc(size_t s) weak
 ___aclc___:
 	struct chunck* cchunck=_mlctx_.firstchnck;
 	
-	au32 syclesbefauregiveup = 0; 
-	// heh, dont give up!, the give up hear is reaquasting a new memory frome the kernel, maxmating 5 sycles, evry sycle demand one Migabyte of data, more than 5, constant
-	if (_mlctx_.chuncksNumber >= 3){
-		syclesbefauregiveup = s / (1024*1024) < 5? s /(1024*1024):5;
-	}
-	au32 sycls=0;
-
 	for (int i = 0 ; i < _mlctx_.chuncksNumber ; i++){
 		if (!cchunck->lock){ //if for what ever reasen this was locked, we are trust the other thread that it will be ether use or already used
 			ac_lock(&cchunck->lock); // lock it
-			if(!cchunck->alocatedcount){ //if it was free, dare i ask if the next cchunck is also free?
+			if(!cchunck->alocatedcount && s + MALLOC_CHUNCK_HEADER_SIZE > PAGESZ){ //if it was free, dare i ask if the next cchunck is also free?
+											       //note that we dont actionly want that! if so it will be a biger wast margen betwen the 
+											       //threads, so we want to do that just if it is the wanted size is biger than a page.
+											       //and fathe locking is expancive, we will give the mestion of cleaning this up to the futer of our selfs
 				if(cchunck->nextchun && !cchunck->nextchun->lock)
 					ac_lock(&cchunck->nextchun->lock);//lock it as well
 					if(!cchunck->nextchun->alocatedcount){ //if this also free, fuce them
