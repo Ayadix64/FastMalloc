@@ -11,7 +11,7 @@ u64 alloctest(u64 chuncksize){
 	struct timespec befaure;
 	clock_gettime(0,&befaure);
 	void * mem = amalloc(chuncksize);
-	//free(mem);
+	afree(mem);
 	struct timespec after;
 	clock_gettime(0,&after);
 
@@ -33,7 +33,7 @@ u64 memsettest(u64 chuncksize){
 	struct timespec after;
 	clock_gettime(0,&after);
 
-	free(mem);
+	//free(mem);
 	return after.tv_nsec - befaure.tv_nsec;
 }
 
@@ -51,6 +51,6 @@ int main(){
 	for (int i = 0 ; i < 10; i++){
 		TEST(alloctest,0x1000*1024*10);
 		
-	//	TEST(memsettest,0x1000*1024*10);
+		//TEST(memsettest,0x1000*1024*10);
 	}
 }

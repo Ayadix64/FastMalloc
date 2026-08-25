@@ -28,21 +28,22 @@ struct chunck {
 	struct chunck* prevchun; // privuce chunk
 
 	atomic_char lock; // the lock mutext, one bit
-	au16 alocatedcount;
+	size_t AlignePadding: (sizeof(size_t) -1)*8;
+	size_t alocatedcount;
 	size_t allocatoffset;
 	size_t datasize; // simple and strate forward
 	
-	void* self;      //Hmm, what is this i hear you ask ? will, if we alocate a memory inside a chunck of memory
+	struct chunck* self;      //Hmm, what is this i hear you ask ? will, if we alocate a memory inside a chunck of memory
 			 //and want to free it, we have to know wher the meta data is, right?
 			 //if it is algined (and it is ) to 4096, what if whe have a big chunk, how we gona finde the meta?
 			 //will, to make free, freing, we have to chuck out the last pointer, and that is it. prety usfule
 
-	unsigned char data[]; // int the most of times, this is 
+	//unsigned char data[]; // int the most of times, this is 
 } __attribute__((packed))  ;
 
 
 
-#define MALLOC_CHUNCK_HEADER_SIZE sizeof(struct chunck)
+#define MALLOC_CHUNCK_HEADER_SIZE sizeof(struct chunck)  /*64 on 64 bit system, 32 on 32 bit systems, nice isnt it?*/
 
 
 
@@ -51,12 +52,9 @@ struct  ac_mlctx /*malloc context*/  {
 	struct chunck* firstchnck;
 	size_t magic;
 	
-	atomic_size_t brk;
 
 	atomic_char lock;
 	char intilised;
-
-
 } ; // a none algiment context, is a good call to profrmence hell
 
 struct ac_mlctx _mlctx_ __attribute__((packed,aligned(1024)))= {.lock=0,.intilised=0,.chuncksNumber=0,.firstchnck=NULL};
@@ -82,26 +80,23 @@ size_t acGenrateMagicNumber(){
 }
 
 
-
 int alocatenewchunck(struct chunck** cnk, size_t s  ){ // if malloc didnt finde a usble chunck , it calls this
-	void* curnetbrk ;
-	if(_mlctx_.brk){curnetbrk=(void*)_mlctx_.brk;}
-	else {curnetbrk=sbrk(0);_mlctx_.brk=(size_t)curnetbrk;}
-
-	if (curnetbrk == (void*)-1){return -1;}
-	curnetbrk=(void*) (( ((size_t)curnetbrk)-MALLOC_CHUNCK_HEADER_SIZE +PAGESZ-1)&((~(size_t)0)<<12)); // algine to the next page
-	if( brk( (void*)(((size_t)curnetbrk+(s+PAGESZ+MALLOC_CHUNCK_HEADER_SIZE-1))&((~(size_t)0)<<12)) ) ){ // if it is refuces to add the data segment size, we retuen 
-		return -1;	
+	void* curnetbrk = sbrk((s+MALLOC_CHUNCK_HEADER_SIZE+PAGESZ-1)&((~(size_t)0)<<12)); 
+	if ((size_t)curnetbrk%0x1000){ //most of unix-like os is algining the Data segemnt by default, if it is not, we well alinge it
+		curnetbrk = (void*)(((size_t)curnetbrk+PAGESZ-1)&((~(size_t)0)<<12));
+		if (brk(curnetbrk) == -1 ){return 0;}
 	}
-	*cnk = (struct chunck*)((size_t)curnetbrk-MALLOC_CHUNCK_HEADER_SIZE);
+	if (curnetbrk == (void*)-1){return -1;}	
+
+
+	*cnk = (struct chunck*)((size_t)curnetbrk);
 	struct chunck *_chunck = *cnk ;
 	_chunck->alocatedcount=1;
-	_chunck->self = *cnk;
-	_chunck->datasize=(s+MALLOC_CHUNCK_HEADER_SIZE+PAGESZ-1)&((~(size_t)0)<<12) ;
+	_chunck->self = _chunck;
+	_chunck->datasize=(s+MALLOC_CHUNCK_HEADER_SIZE+PAGESZ-1)&((~(size_t)0)<<12);
 	_chunck->allocatoffset=s;
 	_chunck->lock=0;
 	_chunck->magicnum=_mlctx_.magic;
-	_mlctx_.brk=(size_t)curnetbrk;
 	return 0;
 
 
@@ -155,7 +150,7 @@ void* amalloc(size_t s) weak
 
 		ret=_mlctx_.firstchnck  + MALLOC_CHUNCK_HEADER_SIZE;
 		_mlctx_.intilised=true;
-		
+		_mlctx_.magic=acGenrateMagicNumber();
 		ac_unlock(&_mlctx_.lock);
 		goto ___acsucses;
 		
@@ -168,7 +163,7 @@ ___aclc___:
 		
 		if(!cchunck){break;}
 		if (!cchunck->lock && 
-			(s+MALLOC_CHUNCK_HEADER_SIZE<PAGESZ*15 && (cchunck->datasize-cchunck->allocatoffset)  < PAGESZ*15 )){
+			(s+MALLOC_CHUNCK_HEADER_SIZE<PAGESZ*15 && (cchunck->datasize-cchunck->allocatoffset)  < PAGESZ*15 ) && s < cchunck->datasize - cchunck->allocatoffset /*for shore*/ ){
 			//if for what ever reasen this was locked, and the requasted data was less than 15 pages , we are trust the other thread that it will be ether use or already used
 			ac_lock(&cchunck->lock); // lock it
 			
@@ -184,14 +179,13 @@ ___aclc___:
 					}
 					ac_unlock(&cchunck->nextchun->lock);
 				}else { // if the next chunck is not free, just return this
-					
 					cchunck->alocatedcount++;
 					ac_unlock(&cchunck->lock);
-
 					ret =cchunck + MALLOC_CHUNCK_HEADER_SIZE;
 					goto ___acsucses;
 				}
 			}else if (cchunck->allocatoffset+sizeof(void*)+s < cchunck->datasize){
+				cchunck->alocatedcount++;
 				ret = cchunck+MALLOC_CHUNCK_HEADER_SIZE+cchunck->allocatoffset+sizeof(void*);
 				((void ** )ret) [-1] = cchunck->self;
 				goto ___acsucses;
@@ -217,13 +211,11 @@ ___aclc___:
 	_mlctx_.chuncksNumber++;
 
 	ret = cchunck->nextchun + MALLOC_CHUNCK_HEADER_SIZE;
-			
 	cchunck->nextchun->lock=0;
 	ac_unlock(&cchunck->lock);
 	ac_unlock(&_mlctx_.lock);
 ___acsucses:
 
-	printf("ret; is %x \n",ret);
 	return ret;
 }
 
@@ -231,7 +223,12 @@ ___acsucses:
 
 void afree(void* mem) weak
 {
-		
+	struct chunck * cnk = (struct chunck*)((size_t)(mem - sizeof(void*)));	
+	if (cnk->magicnum != _mlctx_.magic){return; /*some one soing somthing sceatchy..*/}
+	if (!cnk->alocatedcount){return; /*double free*/}
+	ac_lock(&cnk->lock);
+	cnk->alocatedcount--; //that simple
+	ac_unlock(&cnk->lock);
 }
 
 
