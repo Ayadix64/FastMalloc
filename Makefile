@@ -1,4 +1,5 @@
 build:
-	gcc main.c -o memtest
+	gcc main.c -o /tmp/memtest
 run: build
-	./memtest
+	/tmp/memtest
+	rm /tmp/memtest
