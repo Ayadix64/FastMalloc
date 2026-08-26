@@ -211,7 +211,13 @@ ___aclc___:
 			}
 			ac_unlock(&cchunck->lock);
 		}
-		if(cchunck->nextchun){cchunck=cchunck->nextchun;}else{break;}
+		
+
+		if(cchunck->nextchun){
+			cchunck=cchunck->nextchun;
+		}
+		else{break;}
+	
 	}
 	ac_lock(&_mlctx_.lock);
 	
@@ -233,7 +239,6 @@ ___aclc___:
 	ret=(void*)((size_t)cchunck + MALLOC_CHUNCK_HEADER_SIZE);
 	
 ___acsucses:
-	dbg(ret);
 	return ret;
 }
 
@@ -249,15 +254,23 @@ void afree(void* mem) weak
 		printf("DOUBLE FREE\n");
 		return; /*double free*/
 	}
-
 	ac_lock(&cnk->lock);
 	if (cnk->alocatedcount){
 		cnk->alocatedcount--; //that simple
 	}
 	if(!cnk->alocatedcount){
 		cnk->allocatoffset=0;
+		if(cnk->nextchun==NULL){
+			if(cnk != _mlctx_.firstchnck){
+				brk(cnk);
+			}else {
+				brk(cnk+PAGESZ);
+				cnk->datasize=PAGESZ-MALLOC_CHUNCK_HEADER_SIZE;
+			}
+		}
 	}
 	ac_unlock(&cnk->lock);
+	return;
 }
 
 
