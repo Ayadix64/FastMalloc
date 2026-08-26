@@ -2,8 +2,6 @@
 #define ALOCATA
 
 #include <stdatomic.h>
-#include <stddef.h>
-#include <stdio.h>
 #include <unistd.h>
 //#define ENABLE_WEAK // uncoment to make the memory weak, i.e you can ovride them
 
@@ -57,9 +55,9 @@ struct  ac_mlctx /*malloc context*/  {
 
 	atomic_char lock;
 	char intilised;
-} ; // a none algiment context, is a good call to profrmence hell
+} /*__attribute__((aligned(1024))) */; // a none algiment context, is not good
 
-struct ac_mlctx _mlctx_ __attribute__((packed,aligned(1024)))= {.lock=0,.intilised=0,.chuncksNumber=0,.firstchnck=NULL};
+struct ac_mlctx _mlctx_ = {.lock=0,.intilised=0,.chuncksNumber=0,.firstchnck=NULL};
 
 
 /******************* utilitis ******************/
@@ -133,7 +131,7 @@ int alocatenewchunck(struct chunck** cnk, size_t s  ){ // if malloc didnt finde 
 
 
 
-void* amalloc(size_t s) weak
+void* fmalloc(size_t s) weak
 {
 	void* ret=NULL;
 	if(!_mlctx_.intilised){
@@ -166,8 +164,6 @@ ___aclc___:
 		
 		if(!cchunck){break;}
 		
-		
-
 		if ((!cchunck->lock &&  s <= (cchunck->datasize - cchunck->allocatoffset) )|| 
 			((s+MALLOC_CHUNCK_HEADER_SIZE<PAGESZ*15 && (cchunck->datasize-cchunck->allocatoffset)  < PAGESZ*15 ) &&  s <= (cchunck->datasize )) /*for shore*/ )
 
@@ -243,7 +239,7 @@ ___acsucses:
 }
 
 
-void afree(void* mem) weak
+void ffree(void* mem) weak
 {
 	struct chunck*cnk= ((struct chunck*)(*(void**)(mem-sizeof(void*))))->self;
 	if (cnk->magicnum != _mlctx_.magic){
@@ -260,14 +256,7 @@ void afree(void* mem) weak
 	}
 	if(!cnk->alocatedcount){
 		cnk->allocatoffset=0;
-		if(cnk->nextchun==NULL){
-			if(cnk != _mlctx_.firstchnck){
-				brk(cnk);
-			}else {
-				brk(cnk+PAGESZ);
-				cnk->datasize=PAGESZ-MALLOC_CHUNCK_HEADER_SIZE;
-			}
-		}
+		
 	}
 	ac_unlock(&cnk->lock);
 	return;

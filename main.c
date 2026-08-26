@@ -1,7 +1,6 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <time.h>
-#include <stdlib.h>
 #include <string.h>
 #include "aloc.h"
 typedef long u64;
@@ -10,11 +9,11 @@ u64 alloctest(u64 chuncksize){
 	printf("Alocating %d MB\n",chuncksize/(1024*1024));
 	struct timespec befaure;
 	clock_gettime(0,&befaure);
-	void * mem = amalloc(chuncksize);
+	void * mem = fmalloc(chuncksize);
 	/*for (int i = 0 ; i < 0x1000; i++){
 		printf("%.2x ",*(char*)(mem+i));
 	}*/
-	afree(mem);
+	ffree(mem);
 	struct timespec after;
 	clock_gettime(0,&after);
 
@@ -25,7 +24,7 @@ u64 alloctest(u64 chuncksize){
 
 u64 memsettest(u64 chuncksize){
 	printf("memset %d MB\n",chuncksize/(1024*1024));
-	void * mem = amalloc(chuncksize);
+	void * mem = fmalloc(chuncksize);
 	struct timespec befaure;
 	clock_gettime(0,&befaure);
 
@@ -34,7 +33,7 @@ u64 memsettest(u64 chuncksize){
 	
 	struct timespec after;
 	clock_gettime(0,&after);
-	afree(mem);
+	ffree(mem);
 	return after.tv_nsec - befaure.tv_nsec;
 }
 
@@ -52,6 +51,6 @@ int main(){
 	for (int i = 0 ; i < 10; i++){
 		TEST(alloctest,0x1000*1024*10);
 		
-		//TEST(memsettest,0x1000*1024*10);
+		TEST(memsettest,0x1000*1024*10);
 	}
 }

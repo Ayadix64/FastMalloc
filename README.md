@@ -1,9 +1,14 @@
-<div aligne="center">
-# FAST MALLOC!
+<div align="center">
+                            <h1>FAST MALLOC</h1>
+  <h3>  
+        Fast , Multithreading safe Memory allocater for Linux and Unix-like OSs
+  </h3>
+
+
 </div>
 what do you think that it do?
 
-## Fast , Multithreading safe Memory allocater for Linux and Unix-like OSs
+
 this header only library is a simple memory allocater built around proformanse without scrfising safty and memory,
 
 using only the system calls brk and sbrk to achive a nice proformanse
