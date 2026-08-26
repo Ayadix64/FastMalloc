@@ -11,6 +11,9 @@ u64 alloctest(u64 chuncksize){
 	struct timespec befaure;
 	clock_gettime(0,&befaure);
 	void * mem = amalloc(chuncksize);
+	/*for (int i = 0 ; i < 0x1000; i++){
+		printf("%.2x ",*(char*)(mem+i));
+	}*/
 	afree(mem);
 	struct timespec after;
 	clock_gettime(0,&after);
@@ -23,7 +26,6 @@ u64 alloctest(u64 chuncksize){
 u64 memsettest(u64 chuncksize){
 	printf("memset %d MB\n",chuncksize/(1024*1024));
 	void * mem = amalloc(chuncksize);
-	
 	struct timespec befaure;
 	clock_gettime(0,&befaure);
 
@@ -32,8 +34,7 @@ u64 memsettest(u64 chuncksize){
 	
 	struct timespec after;
 	clock_gettime(0,&after);
-
-	//free(mem);
+	afree(mem);
 	return after.tv_nsec - befaure.tv_nsec;
 }
 
